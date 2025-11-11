@@ -1,0 +1,43 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+export default function Withdraw() {
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState('EFT');
+  const [userBalance, setUserBalance] = useState(0);
+
+  useEffect(()=>{
+    const fetchBalance = async () => {
+      const user = supabase.auth.user();
+      const { data } = await supabase.from('users').select('balance_cents').eq('id', user.id).single();
+      setUserBalance(data.balance_cents / 100);
+    }
+    fetchBalance();
+  }, []);
+
+  const requestWithdraw = async () => {
+    if(amount > userBalance) return alert('Insufficient balance');
+    const user = supabase.auth.user();
+    await supabase.from('withdrawals').insert({
+      user_id: user.id,
+      amount_cents: amount*100,
+      method
+    });
+    alert('Withdrawal requested');
+  }
+
+  return (
+    <div style={{padding:'2rem'}}>
+      <h1>Withdraw</h1>
+      <p>Balance: R{userBalance}</p>
+      <select value={method} onChange={e=>setMethod(e.target.value)}>
+        <option>EFT</option>
+        <option>USDT</option>
+        <option>TRC20</option>
+        <option>Skrill</option>
+      </select>
+      <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount" />
+      <button onClick={requestWithdraw}>Request Withdrawal</button>
+    </div>
+  )
+}
