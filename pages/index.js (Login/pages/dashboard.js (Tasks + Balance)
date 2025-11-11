@@ -1,0 +1,46 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+export default function Dashboard() {
+  const [balance, setBalance] = useState(0);
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(()=>{
+    const fetchBalance = async () => {
+      const user = supabase.auth.user();
+      const { data } = await supabase.from('users').select('balance_cents').eq('id', user.id).single();
+      setBalance(data.balance_cents / 100);
+    }
+
+    const fetchTasks = async () => {
+      const { data } = await supabase.from('task_orders').select('*');
+      setTasks(data);
+    }
+
+    fetchBalance();
+    fetchTasks();
+  }, []);
+
+  const completeTask = async (taskId, commission) => {
+    const user = supabase.auth.user();
+    await supabase.from('task_orders').update({completed:true, completed_at: new Date()}).eq('id', taskId);
+    await supabase.from('users').update({balance_cents: balance*100 + commission}).eq('id', user.id);
+    setBalance(balance + commission/100);
+  }
+
+  return (
+    <div style={{padding:'2rem'}}>
+      <h1>Dashboard</h1>
+      <p>Balance: R{balance}</p>
+      {tasks.map(task=>(
+        <div key={task.id}>
+          <img src={task.image_url} width={150}/>
+          <p>Order #{task.order_number} | Commission: R{task.commission_cents/100}</p>
+          <button onClick={()=>completeTask(task.id, task.commission_cents)} disabled={task.completed}>
+            {task.completed ? 'Completed' : 'Complete'}
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
